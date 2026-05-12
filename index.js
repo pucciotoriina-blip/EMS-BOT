@@ -62,41 +62,158 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand() && interaction.commandName === 'ems-ticket') {
       const embed = new EmbedBuilder()
         .setTitle('🎫 Sistema Ticket EMS')
-        .setDescription('Scegli la categoria del ticket per aprire un canale privato accessibile solo al ruolo EMS e a te.')
+        .setDescription('Scegli una categoria per aprire un ticket privato.')
         .setColor(0x00AAFF)
-        .addFields(
-          { name: 'Categorie', value: 'Alto, Comando, Direzione, Segnalazione, Persona, Info' },
-          { name: 'Come usare', value: 'Premi il pulsante, seleziona la categoria e il ticket verrà creato automaticamente.' }
-        )
         .setTimestamp();
 
-      const button = new ActionRowBuilder().addComponents(
+      const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId('open_ticket')
-          .setLabel('Apri ticket EMS')
+          .setCustomId('ticket_category_alto')
+          .setLabel('Alto')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId('ticket_category_comando')
+          .setLabel('Comando')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('ticket_category_direzione')
+          .setLabel('Direzione')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('ticket_category_segnalazione')
+          .setLabel('Segnalazione')
+          .setStyle(ButtonStyle.Warning),
+        new ButtonBuilder()
+          .setCustomId('ticket_category_persona')
+          .setLabel('Persona')
           .setStyle(ButtonStyle.Primary)
       );
 
-      await interaction.reply({ embeds: [embed], components: [button], ephemeral: true });
+      const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('ticket_category_info')
+          .setLabel('Info')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.reply({ embeds: [embed], components: [row1, row2], ephemeral: false });
       return;
     }
 
     if (interaction.isButton()) {
-      if (interaction.customId === 'open_ticket') {
-        const menu = new StringSelectMenuBuilder()
-          .setCustomId('ticket_category_select')
-          .setPlaceholder('Seleziona la categoria del ticket')
-          .addOptions([
-            { label: 'Alto', value: 'alto', description: 'Richiesta urgente / prioritaria' },
-            { label: 'Comando', value: 'comando', description: 'Richiesta al comando EMS' },
-            { label: 'Direzione', value: 'direzione', description: 'Domanda o ordine dalla direzione' },
-            { label: 'Segnalazione', value: 'segnalazione', description: 'Segnala un problema o un incidente' },
-            { label: 'Persona', value: 'persona', description: 'Richiesta su un membro specifico' },
-            { label: 'Info', value: 'info', description: 'Domande generali e informazioni' }
-          ]);
+      if (interaction.customId.startsWith('ticket_category_')) {
+        const category = interaction.customId.replace('ticket_category_', '');
+        const categoryName = {
+          alto: 'Alto',
+          comando: 'Comando',
+          direzione: 'Direzione',
+          segnalazione: 'Segnalazione',
+          persona: 'Persona',
+          info: 'Info'
+        }[category] ?? 'Ticket';
 
-        const row = new ActionRowBuilder().addComponents(menu);
-        await interaction.update({ content: 'Seleziona qui la categoria del tuo ticket.', components: [row], embeds: [] });
+        const guild = interaction.guild;
+        if (!guild) {
+          await interaction.reply({ content: 'Errore: server non trovato.', ephemeral: true });
+          return;
+        }
+
+        const existingTicket = guild.channels.cache.find(
+          (channel) =>
+            channel.type === ChannelType.GuildText &&
+            channel.topic?.includes(`(${interaction.user.id})`)
+        );
+
+        if (existingTicket) {
+          await interaction.reply({ content: `Hai già un ticket aperto: ${existingTicket}`, ephemeral: true });
+          return;
+        }
+
+        const typeCategoryName = `Ticket - ${categoryName}`;
+        let typeCategory = guild.channels.cache.find(
+          (channel) => channel.type === ChannelType.GuildCategory && channel.name === typeCategoryName
+        );
+
+        if (!typeCategory) {
+          typeCategory = await guild.channels.create({
+            name: typeCategoryName,
+            type: ChannelType.GuildCategory
+          });
+        }
+
+        const safeName = `ticket-${category}-${interaction.user.username}`
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, '-')
+          .replace(/-+/g, '-')
+          .slice(0, 90);
+
+        const channel = await guild.channels.create({
+          name: safeName,
+          type: ChannelType.GuildText,
+          parent: typeCategory.id,
+          topic: `Ticket EMS creato da ${interaction.user.tag} (${interaction.user.id})`,
+          permissionOverwrites: [
+            {
+              id: guild.roles.everyone,
+              deny: [PermissionsBitField.Flags.ViewChannel]
+            },
+            {
+              id: interaction.user.id,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory
+              ]
+            },
+            {
+              id: ticketRoleId,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory
+              ]
+            }
+          ]
+        });
+
+        const actionRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('claim_ticket')
+            .setLabel('Claim')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId('close_ticket')
+            .setLabel('Chiudi ticket')
+            .setStyle(ButtonStyle.Danger)
+        );
+
+        const ticketEmbed = buildTicketEmbed(interaction.user, categoryName, ticketRoleId);
+        await channel.send({
+          content: `<@${interaction.user.id}>`,
+          embeds: [ticketEmbed],
+          components: [actionRow]
+        });
+
+        if (ticketLogChannelId) {
+          const logChannel = guild.channels.cache.get(ticketLogChannelId);
+          if (logChannel?.isTextBased()) {
+            await logChannel.send({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('📬 Nuovo Ticket EMS')
+                  .setDescription(`Ticket creato da ${interaction.user.tag}`)
+                  .addFields(
+                    { name: 'Categoria', value: categoryName, inline: true },
+                    { name: 'Utente', value: interaction.user.tag, inline: true },
+                    { name: 'Canale', value: `<#${channel.id}>`, inline: true }
+                  )
+                  .setTimestamp()
+              ]
+            });
+          }
+        }
+
+        await interaction.reply({ content: `Ticket creato: ${channel}`, ephemeral: true });
         return;
       }
 
@@ -135,122 +252,6 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.showModal(modal);
         return;
       }
-    }
-
-    if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_category_select') {
-      const category = interaction.values[0];
-      const categoryName = {
-        alto: 'Alto',
-        comando: 'Comando',
-        direzione: 'Direzione',
-        segnalazione: 'Segnalazione',
-        persona: 'Persona',
-        info: 'Info'
-      }[category] ?? 'Ticket';
-
-      const guild = interaction.guild;
-      if (!guild) {
-        await interaction.reply({ content: 'Errore: server non trovato.', ephemeral: true });
-        return;
-      }
-
-      const existingTicket = guild.channels.cache.find(
-        (channel) =>
-          channel.type === ChannelType.GuildText &&
-          channel.topic?.includes(`(${interaction.user.id})`)
-      );
-
-      if (existingTicket) {
-        await interaction.reply({ content: `Hai già un ticket aperto: ${existingTicket}`, ephemeral: true });
-        return;
-      }
-
-      const typeCategoryName = `Ticket - ${categoryName}`;
-      let typeCategory = guild.channels.cache.find(
-        (channel) => channel.type === ChannelType.GuildCategory && channel.name === typeCategoryName
-      );
-
-      if (!typeCategory) {
-        typeCategory = await guild.channels.create({
-          name: typeCategoryName,
-          type: ChannelType.GuildCategory
-        });
-      }
-
-      const safeName = `ticket-${category}-${interaction.user.username}`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, '-')
-        .replace(/-+/g, '-')
-        .slice(0, 90);
-
-      const channel = await guild.channels.create({
-        name: safeName,
-        type: ChannelType.GuildText,
-        parent: typeCategory.id,
-        topic: `Ticket EMS creato da ${interaction.user.tag} (${interaction.user.id})`,
-        permissionOverwrites: [
-          {
-            id: guild.roles.everyone,
-            deny: [PermissionsBitField.Flags.ViewChannel]
-          },
-          {
-            id: interaction.user.id,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ReadMessageHistory
-            ]
-          },
-          {
-            id: ticketRoleId,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ReadMessageHistory
-            ]
-          }
-        ]
-      });
-
-      const actionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('claim_ticket')
-          .setLabel('Claim')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId('close_ticket')
-          .setLabel('Chiudi ticket')
-          .setStyle(ButtonStyle.Danger)
-      );
-
-      const ticketEmbed = buildTicketEmbed(interaction.user, categoryName, ticketRoleId);
-      await channel.send({
-        content: `<@${interaction.user.id}>`,
-        embeds: [ticketEmbed],
-        components: [actionRow]
-      });
-
-      if (ticketLogChannelId) {
-        const logChannel = guild.channels.cache.get(ticketLogChannelId);
-        if (logChannel?.isTextBased()) {
-          await logChannel.send({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle('📬 Nuovo Ticket EMS')
-                .setDescription(`Ticket creato da ${interaction.user.tag}`)
-                .addFields(
-                  { name: 'Categoria', value: categoryName, inline: true },
-                  { name: 'Utente', value: interaction.user.tag, inline: true },
-                  { name: 'Canale', value: `<#${channel.id}>`, inline: true }
-                )
-                .setTimestamp()
-            ]
-          });
-        }
-      }
-
-      await interaction.reply({ content: `Ticket creato: ${channel}`, ephemeral: true });
-      return;
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'close_ticket_modal') {
