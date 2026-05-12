@@ -1,0 +1,10 @@
+{
+  "name": "ems-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "discord.js": "^14.15.0",
+    "dotenv": "^16.1.4"
+  }
+}
