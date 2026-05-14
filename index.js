@@ -24,6 +24,7 @@ const ticketRoleId = process.env.EMS_TICKET_ROLE_ID;
 const ticketCategoryId = process.env.EMS_TICKET_CATEGORY_ID;
 const ticketLogChannelId = process.env.EMS_TICKET_LOG_CHANNEL_ID;
 const welcomeChannelId = process.env.EMS_WELCOME_CHANNEL_ID;
+const ticketPanelChannelId = process.env.EMS_TICKET_PANEL_CHANNEL_ID;
 
 const missing = [];
 if (!token) missing.push('DISCORD_TOKEN');
@@ -48,8 +49,56 @@ client.once('ready', async () => {
       body: [ticketCommand.toJSON()]
     });
     console.log(`Bot pronto come ${client.user.tag}`);
+
+    // Invia il pannello ticket al canale specificato
+    if (ticketPanelChannelId) {
+      const guild = client.guilds.cache.get(guildId);
+      if (guild) {
+        const panelChannel = guild.channels.cache.get(ticketPanelChannelId);
+        if (panelChannel?.isTextBased()) {
+          const embed = new EmbedBuilder()
+            .setTitle('🎫 Sistema Ticket EMS')
+            .setDescription('Scegli una categoria per aprire un ticket privato.')
+            .setColor(0x00AAFF)
+            .setTimestamp();
+
+          const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('ticket_category_alto')
+              .setLabel('Alto')
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setCustomId('ticket_category_comando')
+              .setLabel('Comando')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('ticket_category_direzione')
+              .setLabel('Direzione')
+              .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+              .setCustomId('ticket_category_segnalazione')
+              .setLabel('Segnalazione')
+              .setStyle(ButtonStyle.Warning),
+            new ButtonBuilder()
+              .setCustomId('ticket_category_persona')
+              .setLabel('Persona')
+              .setStyle(ButtonStyle.Primary)
+          );
+
+          const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('ticket_category_info')
+              .setLabel('Info')
+              .setStyle(ButtonStyle.Secondary)
+          );
+
+          await panelChannel.send({ embeds: [embed], components: [row1, row2] });
+          console.log('Pannello ticket inviato al canale:', panelChannel.name);
+        }
+      }
+    }
   } catch (error) {
-    console.error('Errore registrazione comandi:', error);
+    console.error('Errore registrazione comandi o invio pannello:', error);
   }
 });
 
