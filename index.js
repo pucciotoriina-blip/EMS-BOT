@@ -45,6 +45,10 @@ const client = new Client({
 
 client.once('clientReady', async () => {
   try {
+    const rest = new REST({ version: '10' }).setToken(token);
+    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+      body: [ticketCommand.toJSON()]
+    });
     console.log(`Bot pronto come ${client.user.tag}`);
 
     // Invia il pannello ticket al canale specificato
@@ -95,7 +99,7 @@ client.once('clientReady', async () => {
       }
     }
   } catch (error) {
-    console.error('Errore invio pannello:', error);
+    console.error('Errore registrazione comandi o invio pannello:', error);
   }
 });
 
@@ -305,12 +309,33 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
   } catch (error) {
-    console.error('Errore gestendo interazione:', error.message);
-    console.error('Stack trace:', error.stack);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: 'Si è verificato un errore interno.', flags: [MessageFlags.Ephemeral] });
-    } else {
-      await interaction.reply({ content: 'Si è verificato un errore interno.', flags: [MessageFlags.Ephemeral] });
+    const errorMessage = error.message || 'Errore sconosciuto';
+    const errorCode = error.code || 'NO_CODE';
+    
+    console.error('❌ ERRORE gestendo interazione:');
+    console.error('  Tipo:', error.name);
+    console.error('  Messaggio:', errorMessage);
+    console.error('  Codice:', errorCode);
+    console.error('  Stack trace:', error.stack);
+    
+    const errorEmbed = new EmbedBuilder()
+      .setTitle('❌ Si è verificato un errore')
+      .setDescription(`**Errore:** ${errorMessage}`)
+      .addFields(
+        { name: 'Tipo', value: error.name || 'Sconosciuto', inline: true },
+        { name: 'Codice', value: errorCode, inline: true }
+      )
+      .setColor(0xFF0000)
+      .setTimestamp();
+    
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ embeds: [errorEmbed], flags: [MessageFlags.Ephemeral] });
+      } else {
+        await interaction.reply({ embeds: [errorEmbed], flags: [MessageFlags.Ephemeral] });
+      }
+    } catch (replyError) {
+      console.error('Errore anche nel rispondere all\'errore:', replyError.message);
     }
   }
 });
