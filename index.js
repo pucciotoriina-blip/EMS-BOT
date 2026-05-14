@@ -296,7 +296,8 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
   } catch (error) {
-    console.error('Errore gestendo interazione:', error);
+    console.error('Errore gestendo interazione:', error.message);
+    console.error('Stack trace:', error.stack);
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ content: 'Si è verificato un errore interno.', ephemeral: true });
     } else {
