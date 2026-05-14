@@ -13,7 +13,8 @@ import {
   TextInputStyle,
   EmbedBuilder,
   PermissionsBitField,
-  ChannelType
+  ChannelType,
+  MessageFlags
 } from 'discord.js';
 import { ticketCommand, buildTicketEmbed } from './commands.js';
 
@@ -78,7 +79,7 @@ client.once('clientReady', async () => {
             new ButtonBuilder()
               .setCustomId('ticket_category_segnalazione')
               .setLabel('Segnalazione')
-              .setStyle(ButtonStyle.Warning),
+              .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
               .setCustomId('ticket_category_persona')
               .setLabel('Persona')
@@ -145,7 +146,7 @@ client.on('interactionCreate', async (interaction) => {
           .setStyle(ButtonStyle.Secondary)
       );
 
-      await interaction.reply({ embeds: [embed], components: [row1, row2], ephemeral: false });
+      await interaction.reply({ embeds: [embed], components: [row1, row2] });
       return;
     }
 
@@ -163,7 +164,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const guild = interaction.guild;
         if (!guild) {
-          await interaction.reply({ content: 'Errore: server non trovato.', ephemeral: true });
+          await interaction.reply({ content: 'Errore: server non trovato.', flags: [MessageFlags.Ephemeral] });
           return;
         }
 
@@ -174,7 +175,7 @@ client.on('interactionCreate', async (interaction) => {
         );
 
         if (existingTicket) {
-          await interaction.reply({ content: `Hai già un ticket aperto: ${existingTicket}`, ephemeral: true });
+          await interaction.reply({ content: `Hai già un ticket aperto: ${existingTicket}`, flags: [MessageFlags.Ephemeral] });
           return;
         }
 
@@ -266,24 +267,24 @@ client.on('interactionCreate', async (interaction) => {
           }
         }
 
-        await interaction.reply({ content: `Ticket creato: ${channel}`, ephemeral: true });
+        await interaction.reply({ content: `Ticket creato: ${channel}`, flags: [MessageFlags.Ephemeral] });
         return;
       }
 
       if (interaction.customId === 'claim_ticket' || interaction.customId === 'close_ticket') {
         if (!interaction.member || !memberHasTicketRole(interaction.member)) {
-          await interaction.reply({ content: 'Solo il ruolo EMS può usare questo pulsante.', ephemeral: true });
+          await interaction.reply({ content: 'Solo il ruolo EMS può usare questo pulsante.', flags: [MessageFlags.Ephemeral] });
           return;
         }
 
         const channel = interaction.channel;
         if (!channel?.isTextBased() || !channel.topic?.includes('Ticket EMS creato da')) {
-          await interaction.reply({ content: "Questo pulsante può essere usato solo all'interno di un ticket.", ephemeral: true });
+          await interaction.reply({ content: "Questo pulsante può essere usato solo all'interno di un ticket.", flags: [MessageFlags.Ephemeral] });
           return;
         }
 
         if (interaction.customId === 'claim_ticket') {
-          await interaction.reply({ content: `Ticket claimato da ${interaction.user.tag}.`, ephemeral: true });
+          await interaction.reply({ content: `Ticket claimato da ${interaction.user.tag}.`, flags: [MessageFlags.Ephemeral] });
           await channel.send({ content: `🔰 ${interaction.user.tag} ha claimato questo ticket.` });
           return;
         }
@@ -311,11 +312,11 @@ client.on('interactionCreate', async (interaction) => {
       const reason = interaction.fields.getTextInputValue('close_reason');
       const channel = interaction.channel;
       if (!channel?.isTextBased()) {
-        await interaction.reply({ content: 'Errore: impossibile chiudere il ticket.', ephemeral: true });
+        await interaction.reply({ content: 'Errore: impossibile chiudere il ticket.', flags: [MessageFlags.Ephemeral] });
         return;
       }
 
-      await interaction.reply({ content: 'Ticket chiuso.', ephemeral: true });
+      await interaction.reply({ content: 'Ticket chiuso.', flags: [MessageFlags.Ephemeral] });
 
       const closeEmbed = new EmbedBuilder()
         .setTitle('✅ Ticket chiuso')
@@ -352,9 +353,9 @@ client.on('interactionCreate', async (interaction) => {
     console.error('Errore gestendo interazione:', error.message);
     console.error('Stack trace:', error.stack);
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: 'Si è verificato un errore interno.', ephemeral: true });
+      await interaction.followUp({ content: 'Si è verificato un errore interno.', flags: [MessageFlags.Ephemeral] });
     } else {
-      await interaction.reply({ content: 'Si è verificato un errore interno.', ephemeral: true });
+      await interaction.reply({ content: 'Si è verificato un errore interno.', flags: [MessageFlags.Ephemeral] });
     }
   }
 });
