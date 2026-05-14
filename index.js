@@ -132,23 +132,7 @@ client.on('interactionCreate', async (interaction) => {
         new ButtonBuilder()
           .setCustomId('ticket_category_segnalazione')
           .setLabel('Segnalazione')
-          .setStyle(ButtonStyle.Warning),
-        new ButtonBuilder()
-          .setCustomId('ticket_category_persona')
-          .setLabel('Persona')
-          .setStyle(ButtonStyle.Primary)
-      );
-
-      const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('ticket_category_info')
-          .setLabel('Info')
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-      await interaction.reply({ embeds: [embed], components: [row1, row2] });
-      return;
-    }
+              .setStyle(ButtonStyle.Secondary),
 
     if (interaction.isButton()) {
       if (interaction.customId.startsWith('ticket_category_')) {
