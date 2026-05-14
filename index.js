@@ -110,6 +110,11 @@ function memberHasTicketRole(member) {
 client.on('interactionCreate', async (interaction) => {
   try {
     if (interaction.isButton()) {
+      // Defer la risposta per evitare timeout
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+      }
+
       if (interaction.customId.startsWith('ticket_category_')) {
         const category = interaction.customId.replace('ticket_category_', '');
         const categoryName = {
@@ -121,11 +126,16 @@ client.on('interactionCreate', async (interaction) => {
           info: 'Info'
         }[category] ?? 'Ticket';
 
+        console.log(`📝 Inizio creazione ticket categoria: ${categoryName}`);
+
         const guild = interaction.guild;
         if (!guild) {
-          await interaction.reply({ content: 'Errore: server non trovato.', flags: [MessageFlags.Ephemeral] });
+          console.error('❌ Errore: Guild non trovata');
+          await interaction.editReply({ content: 'Errore: server non trovato.' });
           return;
         }
+
+        console.log(`✅ Guild trovata: ${guild.name}`);
 
         const existingTicket = guild.channels.cache.find(
           (channel) =>
@@ -134,9 +144,12 @@ client.on('interactionCreate', async (interaction) => {
         );
 
         if (existingTicket) {
-          await interaction.reply({ content: `Hai già un ticket aperto: ${existingTicket}`, flags: [MessageFlags.Ephemeral] });
+          console.log(`⚠️ Utente ha già un ticket: ${existingTicket.name}`);
+          await interaction.editReply({ content: `Hai già un ticket aperto: ${existingTicket}` });
           return;
         }
+
+        console.log(`✅ Nessun ticket esistente`);
 
         const typeCategoryName = `Ticket - ${categoryName}`;
         let typeCategory = guild.channels.cache.find(
@@ -144,10 +157,14 @@ client.on('interactionCreate', async (interaction) => {
         );
 
         if (!typeCategory) {
+          console.log(`📁 Creando categoria: ${typeCategoryName}`);
           typeCategory = await guild.channels.create({
             name: typeCategoryName,
             type: ChannelType.GuildCategory
           });
+          console.log(`✅ Categoria creata: ${typeCategory.id}`);
+        } else {
+          console.log(`✅ Categoria trovata: ${typeCategory.name}`);
         }
 
         const safeName = `ticket-${category}-${interaction.user.username}`
@@ -156,7 +173,8 @@ client.on('interactionCreate', async (interaction) => {
           .replace(/-+/g, '-')
           .slice(0, 90);
 
-        console.log('Creating ticket channel:', safeName, 'in category:', typeCategory.name, 'with role:', ticketRoleId);
+        console.log(`📝 Nome canale: ${safeName}`);
+        console.log(`👥 Ruolo ticket: ${ticketRoleId}`);
 
         const channel = await guild.channels.create({
           name: safeName,
@@ -187,7 +205,7 @@ client.on('interactionCreate', async (interaction) => {
           ]
         });
 
-        console.log('Channel created successfully:', channel.id);
+        console.log(`✅ Canale creato: ${channel.id}`);
 
         const actionRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
@@ -207,43 +225,54 @@ client.on('interactionCreate', async (interaction) => {
           components: [actionRow]
         });
 
+        console.log(`✅ Messaggio inviato al canale`);
+
         if (ticketLogChannelId) {
-          const logChannel = guild.channels.cache.get(ticketLogChannelId);
-          if (logChannel?.isTextBased()) {
-            await logChannel.send({
-              embeds: [
-                new EmbedBuilder()
-                  .setTitle('📬 Nuovo Ticket EMS')
-                  .setDescription(`Ticket creato da ${interaction.user.tag}`)
-                  .addFields(
-                    { name: 'Categoria', value: categoryName, inline: true },
-                    { name: 'Utente', value: interaction.user.tag, inline: true },
-                    { name: 'Canale', value: `<#${channel.id}>`, inline: true }
-                  )
-                  .setTimestamp()
-              ]
-            });
+          try {
+            const logChannel = guild.channels.cache.get(ticketLogChannelId);
+            if (logChannel?.isTextBased()) {
+              await logChannel.send({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle('📬 Nuovo Ticket EMS')
+                    .setDescription(`Ticket creato da ${interaction.user.tag}`)
+                    .addFields(
+                      { name: 'Categoria', value: categoryName, inline: true },
+                      { name: 'Utente', value: interaction.user.tag, inline: true },
+                      { name: 'Canale', value: `<#${channel.id}>`, inline: true }
+                    )
+                    .setTimestamp()
+                ]
+              });
+              console.log(`✅ Log inviato al canale di log`);
+            }
+          } catch (logError) {
+            console.warn(`⚠️ Errore nell'invio del log:`, logError.message);
           }
         }
 
-        await interaction.reply({ content: `Ticket creato: ${channel}`, flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply({ content: `✅ Ticket creato: ${channel}` });
+        console.log(`✅ Ticket creato con successo`);
         return;
       }
 
       if (interaction.customId === 'claim_ticket' || interaction.customId === 'close_ticket') {
         if (!interaction.member || !memberHasTicketRole(interaction.member)) {
-          await interaction.reply({ content: 'Solo il ruolo EMS può usare questo pulsante.', flags: [MessageFlags.Ephemeral] });
+          console.warn(`⚠️ Utente ${interaction.user.tag} non ha il ruolo per reclamare/chiudere ticket`);
+          await interaction.editReply({ content: 'Solo il ruolo EMS può usare questo pulsante.' });
           return;
         }
 
         const channel = interaction.channel;
         if (!channel?.isTextBased() || !channel.topic?.includes('Ticket EMS creato da')) {
-          await interaction.reply({ content: "Questo pulsante può essere usato solo all'interno di un ticket.", flags: [MessageFlags.Ephemeral] });
+          console.error(`❌ Canale non valido o non è un ticket`);
+          await interaction.editReply({ content: "Questo pulsante può essere usato solo all'interno di un ticket." });
           return;
         }
 
         if (interaction.customId === 'claim_ticket') {
-          await interaction.reply({ content: `Ticket claimato da ${interaction.user.tag}.`, flags: [MessageFlags.Ephemeral] });
+          console.log(`✅ Ticket claimato da ${interaction.user.tag}`);
+          await interaction.editReply({ content: `Ticket claimato da ${interaction.user.tag}.` });
           await channel.send({ content: `🔰 ${interaction.user.tag} ha claimato questo ticket.` });
           return;
         }
@@ -268,14 +297,19 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isModalSubmit() && interaction.customId === 'close_ticket_modal') {
+      // Defer la risposta per evitare timeout
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+      }
+
       const reason = interaction.fields.getTextInputValue('close_reason');
       const channel = interaction.channel;
       if (!channel?.isTextBased()) {
-        await interaction.reply({ content: 'Errore: impossibile chiudere il ticket.', flags: [MessageFlags.Ephemeral] });
+        await interaction.editReply({ content: 'Errore: impossibile chiudere il ticket.' });
         return;
       }
 
-      await interaction.reply({ content: 'Ticket chiuso.', flags: [MessageFlags.Ephemeral] });
+      await interaction.editReply({ content: 'Ticket chiuso.' });
 
       const closeEmbed = new EmbedBuilder()
         .setTitle('✅ Ticket chiuso')
@@ -311,31 +345,35 @@ client.on('interactionCreate', async (interaction) => {
   } catch (error) {
     const errorMessage = error.message || 'Errore sconosciuto';
     const errorCode = error.code || 'NO_CODE';
+    const errorName = error.name || 'Error';
     
-    console.error('❌ ERRORE gestendo interazione:');
-    console.error('  Tipo:', error.name);
-    console.error('  Messaggio:', errorMessage);
-    console.error('  Codice:', errorCode);
-    console.error('  Stack trace:', error.stack);
+    console.error('\n❌ ========== ERRORE INTERAZIONE ==========');
+    console.error(`Nome: ${errorName}`);
+    console.error(`Messaggio: ${errorMessage}`);
+    console.error(`Codice: ${errorCode}`);
+    console.error(`Stack:\n${error.stack}`);
+    console.error('========================================\n');
     
     const errorEmbed = new EmbedBuilder()
-      .setTitle('❌ Si è verificato un errore')
-      .setDescription(`**Errore:** ${errorMessage}`)
+      .setTitle('❌ Errore')
+      .setDescription(errorMessage)
       .addFields(
-        { name: 'Tipo', value: error.name || 'Sconosciuto', inline: true },
-        { name: 'Codice', value: errorCode, inline: true }
+        { name: 'Tipo Errore', value: `\`${errorName}\``, inline: true },
+        { name: 'Codice', value: `\`${errorCode}\``, inline: true }
       )
       .setColor(0xFF0000)
       .setTimestamp();
     
     try {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ embeds: [errorEmbed], flags: [MessageFlags.Ephemeral] });
-      } else {
-        await interaction.reply({ embeds: [errorEmbed], flags: [MessageFlags.Ephemeral] });
+      if (interaction.isRepliable()) {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ embeds: [errorEmbed] });
+        } else {
+          await interaction.reply({ embeds: [errorEmbed], flags: [MessageFlags.Ephemeral] });
+        }
       }
     } catch (replyError) {
-      console.error('Errore anche nel rispondere all\'errore:', replyError.message);
+      console.error(`⚠️ Impossibile inviare embed errore:`, replyError.message);
     }
   }
 });
