@@ -147,6 +147,8 @@ client.on('interactionCreate', async (interaction) => {
           .replace(/-+/g, '-')
           .slice(0, 90);
 
+        console.log('Creating ticket channel:', safeName, 'in category:', typeCategory.name, 'with role:', ticketRoleId);
+
         const channel = await guild.channels.create({
           name: safeName,
           type: ChannelType.GuildText,
@@ -175,6 +177,8 @@ client.on('interactionCreate', async (interaction) => {
             }
           ]
         });
+
+        console.log('Channel created successfully:', channel.id);
 
         const actionRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
