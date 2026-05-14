@@ -45,10 +45,6 @@ const client = new Client({
 
 client.once('clientReady', async () => {
   try {
-    const rest = new REST({ version: '10' }).setToken(token);
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-      body: [ticketCommand.toJSON()]
-    });
     console.log(`Bot pronto come ${client.user.tag}`);
 
     // Invia il pannello ticket al canale specificato
@@ -99,7 +95,7 @@ client.once('clientReady', async () => {
       }
     }
   } catch (error) {
-    console.error('Errore registrazione comandi o invio pannello:', error);
+    console.error('Errore invio pannello:', error);
   }
 });
 
@@ -109,31 +105,6 @@ function memberHasTicketRole(member) {
 
 client.on('interactionCreate', async (interaction) => {
   try {
-    if (interaction.isChatInputCommand() && interaction.commandName === 'ems-ticket') {
-      const embed = new EmbedBuilder()
-        .setTitle('🎫 Sistema Ticket EMS')
-        .setDescription('Scegli una categoria per aprire un ticket privato.')
-        .setColor(0x00AAFF)
-        .setTimestamp();
-
-      const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('ticket_category_alto')
-          .setLabel('Alto')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId('ticket_category_comando')
-          .setLabel('Comando')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId('ticket_category_direzione')
-          .setLabel('Direzione')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId('ticket_category_segnalazione')
-          .setLabel('Segnalazione')
-              .setStyle(ButtonStyle.Secondary),
-
     if (interaction.isButton()) {
       if (interaction.customId.startsWith('ticket_category_')) {
         const category = interaction.customId.replace('ticket_category_', '');
