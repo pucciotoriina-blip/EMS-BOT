@@ -44,7 +44,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   try {
     const rest = new REST({ version: '10' }).setToken(token);
     await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
