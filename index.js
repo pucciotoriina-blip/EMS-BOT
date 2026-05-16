@@ -42,10 +42,17 @@ function sanitizeChannelName(text) {
 function buildPanelEmbed() {
   const embed = new EmbedBuilder()
     .setTitle('🎫 TICKET CREATE')
-    .setDescription('Supporto 24/7 • www.onyx.xyz')
+    .setDescription('Scegli la categoria giusta e apri il ticket corretto.\nUn ticket aperto alla volta.')
+    .addFields(
+      { name: '🛡️ ALTO COMANDO', value: 'Richiedi supporto ufficiale o decisioni di alto comando.', inline: false },
+      { name: '⚠️ SEGNALAZIONI', value: 'Segnala problemi, abusi o comportamenti scorretti.', inline: false },
+      { name: 'ℹ️ INFO', value: 'Chiedi informazioni sul server, regole o procedure.', inline: false },
+      { name: '🎉 PROMOZIONE', value: 'Richiedi promozioni, vantaggi o eventi in corso.', inline: false },
+      { name: '❗ ISTRUZIONI', value: 'Premi il bottone giusto qui sotto per aprire il ticket.', inline: false }
+    )
     .setColor('#0d6efd')
     .setAuthor({ name: 'Developed by lupomannaro', iconURL: DISCORD_ICON_URL || undefined })
-    .setFooter({ text: 'Developed by lupomannaro • onyx.xyz', iconURL: DISCORD_ICON_URL || undefined });
+    .setFooter({ text: 'Developed by lupomannaro • onyx.xyz' });
 
   if (BANNER_URL) {
     embed.setImage(BANNER_URL);
@@ -56,18 +63,6 @@ function buildPanelEmbed() {
   }
 
   return embed;
-}
-
-function buildPanelContent() {
-  return [
-    '**Scegli il tipo di ticket:**',
-    '🛡️ **ALTO COMANDO** — Supporto ufficiale e decisioni di alto comando.',
-    '⚠️ **SEGNALAZIONI** — Apri un ticket per una segnalazione o un abuso.',
-    'ℹ️ **INFO** — Chiedi informazioni generali sul server o procedure.',
-    '🎉 **PROMOZIONE** — Richiedi informazioni su promo, eventi e vantaggi.',
-    '',
-    '🔽 Premi uno dei pulsanti qui sotto per aprire il ticket.'
-  ].join('\n');
 }
 
 function buildTicketButtons() {
@@ -94,7 +89,6 @@ async function createTicketPanel(interaction) {
 
   const embed = buildPanelEmbed();
   const rows = buildTicketButtons();
-  const content = buildPanelContent();
 
   await interaction.reply({ content: 'Pannello ticket creato.', ephemeral: true });
   const channel = await interaction.guild.channels.fetch(PANEL_CHANNEL_ID);
@@ -103,7 +97,7 @@ async function createTicketPanel(interaction) {
     return;
   }
 
-  await channel.send({ content, embeds: [embed], components: rows });
+  await channel.send({ embeds: [embed], components: rows });
 }
 
 async function getExistingTicketChannel(guild, userId) {
