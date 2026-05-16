@@ -41,17 +41,11 @@ function sanitizeChannelName(text) {
 
 function buildPanelEmbed() {
   const embed = new EmbedBuilder()
-    .setTitle('🎫 TICKET EMS')
-    .setDescription('Supporto 24/7 • Apri il ticket giusto per la tua richiesta.\nPremi un pulsante per aprire un solo ticket alla volta.')
-    .addFields(
-      { name: 'ALTO COMANDO', value: '🛡️ Richiedi supporto ufficiale o decisioni di alto comando.', inline: false },
-      { name: 'SEGNALAZIONI', value: '⚠️ Apri un ticket per una segnalazione o un abuso.', inline: false },
-      { name: 'INFO', value: 'ℹ️ Chiedi informazioni generali sul server o procedure.', inline: false },
-      { name: 'PROMOZIONE', value: '🎉 Richiedi informazioni su promo, eventi e vantaggi.', inline: false }
-    )
+    .setTitle('🎫 TICKET CREATE')
+    .setDescription('**SUPPORT 24/7** • www.onyx.xyz\n\n**Hai una domanda sui prodotti?**\n↳ Premi ALTO COMANDO per ottenere supporto rapido.\n\n**Hai bisogno di aiuto generale?**\n↳ Premi SEGNALAZIONI per aprire un ticket adatto.\n\n**Non hai ricevuto il prodotto?**\n↳ Premi INFO o PROMOZIONE per assistenza dedicata.')
     .setColor('#0d6efd')
     .setAuthor({ name: 'Developed by lupomannaro', iconURL: DISCORD_ICON_URL || undefined })
-    .setFooter({ text: 'Developed by lupomannaro • onyx.xyz' });
+    .setFooter({ text: 'Developed by lupomannaro • onyx.xyz', iconURL: DISCORD_ICON_URL || undefined });
 
   if (BANNER_URL) {
     embed.setImage(BANNER_URL);
