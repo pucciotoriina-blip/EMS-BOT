@@ -66,13 +66,11 @@ function buildPanelEmbed() {
 }
 
 function buildTicketButtons() {
-  const row = new ActionRowBuilder();
-  ticketButtons.forEach((button) => {
-    row.addComponents(
+  return ticketButtons.map((button) =>
+    new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(button.id).setLabel(button.label).setStyle(button.style)
-    );
-  });
-  return [row];
+    )
+  );
 }
 
 function buildTicketActionRow() {
