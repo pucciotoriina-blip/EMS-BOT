@@ -11,6 +11,7 @@ const {
   LOG_CHANNEL_ID,
   ADMIN_ROLE_ID,
   BANNER_URL,
+  DISCORD_ICON_URL,
 } = process.env;
 
 if (!BOT_TOKEN || !GUILD_ID || !PANEL_CHANNEL_ID || !TICKET_ROLE_ID || !LOG_CHANNEL_ID || !ADMIN_ROLE_ID) {
@@ -24,10 +25,10 @@ const client = new Client({
 });
 
 const ticketButtons = [
-  { label: 'ALTO COMANDO', style: ButtonStyle.Primary, id: 'ticket_ALTO_COMANDO', description: 'Richiedi supporto ad alto comando' },
-  { label: 'SEGNALAZIONI', style: ButtonStyle.Secondary, id: 'ticket_SEGNALAZIONI', description: 'Apri un ticket per una segnalazione' },
-  { label: 'INFO', style: ButtonStyle.Success, id: 'ticket_INFO', description: 'Chiedi informazioni generali' },
-  { label: 'PROMOZIONE', style: ButtonStyle.Danger, id: 'ticket_PROMOZIONE', description: 'Richiedi info su promozioni' },
+  { label: '🛡️ ALTO COMANDO', style: ButtonStyle.Primary, id: 'ticket_ALTO_COMANDO', description: 'Richiedi supporto ad alto comando' },
+  { label: '⚠️ SEGNALAZIONI', style: ButtonStyle.Secondary, id: 'ticket_SEGNALAZIONI', description: 'Apri un ticket per una segnalazione' },
+  { label: 'ℹ️ INFO', style: ButtonStyle.Success, id: 'ticket_INFO', description: 'Chiedi informazioni generali' },
+  { label: '🎉 PROMOZIONE', style: ButtonStyle.Danger, id: 'ticket_PROMOZIONE', description: 'Richiedi info su promozioni' },
 ];
 
 function sanitizeChannelName(text) {
@@ -43,16 +44,21 @@ function buildPanelEmbed() {
     .setTitle('🎫 TICKET EMS')
     .setDescription('Supporto 24/7 • Apri il ticket giusto per la tua richiesta.\nPremi un pulsante per aprire un solo ticket alla volta.')
     .addFields(
-      { name: 'ALTO COMANDO', value: 'Richiedi supporto ufficiale o decisioni di alto comando.', inline: false },
-      { name: 'SEGNALAZIONI', value: 'Apri un ticket per una segnalazione o un abuso.', inline: false },
-      { name: 'INFO', value: 'Chiedi informazioni generali sul server o procedure.', inline: false },
-      { name: 'PROMOZIONE', value: 'Richiedi informazioni su promo, eventi e vantaggi.', inline: false }
+      { name: 'ALTO COMANDO', value: '🛡️ Richiedi supporto ufficiale o decisioni di alto comando.', inline: false },
+      { name: 'SEGNALAZIONI', value: '⚠️ Apri un ticket per una segnalazione o un abuso.', inline: false },
+      { name: 'INFO', value: 'ℹ️ Chiedi informazioni generali sul server o procedure.', inline: false },
+      { name: 'PROMOZIONE', value: '🎉 Richiedi informazioni su promo, eventi e vantaggi.', inline: false }
     )
     .setColor('#0d6efd')
-    .setFooter({ text: 'Server EMS GTA RP • onyx.xyz' });
+    .setAuthor({ name: 'Developed by lupomannaro', iconURL: DISCORD_ICON_URL || undefined })
+    .setFooter({ text: 'Developed by lupomannaro • onyx.xyz' });
 
   if (BANNER_URL) {
     embed.setImage(BANNER_URL);
+  }
+
+  if (DISCORD_ICON_URL) {
+    embed.setThumbnail(DISCORD_ICON_URL);
   }
 
   return embed;
@@ -71,8 +77,8 @@ function buildTicketButtons() {
 function buildTicketActionRow() {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('close_ticket').setLabel('CHIUDI').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('reclama_ticket').setLabel('RECLAMA').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId('close_ticket').setLabel('❌ CHIUDI').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('reclama_ticket').setLabel('📣 RECLAMA').setStyle(ButtonStyle.Secondary)
     ),
   ];
 }
@@ -161,17 +167,24 @@ async function createTicketChannel(interaction, ticketType) {
 }
 
 function buildTicketEmbed(user, ticketType) {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(`Ticket aperto: ${ticketType}`)
     .setDescription(`Ciao ${user}!
 TI ASSISTEREMO A BREVE.
 Descrivi bene il tuo problema o la tua richiesta.`)
     .addFields(
       { name: 'Categoria', value: ticketType, inline: true },
-      { name: 'Indicazioni', value: 'Fornisci informazioni chiare e dettagliate. Il team ticket ti risponderà qui.', inline: true }
+      { name: 'Indicazioni', value: 'Fornisci informazioni chiare e dettagliate. Il team ticket risponderà qui.', inline: true }
     )
     .setColor('#1abc9c')
-    .setFooter({ text: 'Premi CHIUDI quando il ticket è risolto oppure RECLAMA se serve escalation.' });
+    .setAuthor({ name: 'Developed by lupomannaro', iconURL: DISCORD_ICON_URL || undefined })
+    .setFooter({ text: 'Developed by lupomannaro • onyx.xyz' });
+
+  if (DISCORD_ICON_URL) {
+    embed.setThumbnail(DISCORD_ICON_URL);
+  }
+
+  return embed;
 }
 
 function userCanManage(interaction) {
@@ -197,6 +210,13 @@ async function generateTranscript(channel) {
   return lines.join('\n');
 }
 
+function parseTicketInfo(channel) {
+  const ticketAuthorId = channel.topic?.startsWith('ticket:') ? channel.topic.split(':')[1] : null;
+  const categoryName = channel.parent?.name || '';
+  const ticketType = categoryName.replace(/^Tickets - /i, '') || channel.name.replace(/^ticket-/, '');
+  return { ticketAuthorId, ticketType };
+}
+
 async function closeTicket(interaction) {
   if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) return;
   if (!userCanManage(interaction)) {
@@ -205,17 +225,46 @@ async function closeTicket(interaction) {
   }
 
   const channel = interaction.channel;
+  const { ticketAuthorId, ticketType } = parseTicketInfo(channel);
   const transcript = await generateTranscript(channel);
-  const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID);
+  const transcriptFile = { attachment: Buffer.from(transcript, 'utf-8'), name: `${channel.name}-transcript.txt` };
+  const closedBy = `${interaction.user.tag}`;
+  const openedBy = ticketAuthorId ? `<@${ticketAuthorId}>` : 'Utente non trovato';
+  const openedById = ticketAuthorId || 'Sconosciuto';
+  const reason = 'Risolto o chiuso da staff';
 
+  const embed = new EmbedBuilder()
+    .setTitle('📄 Transcript ticket')
+    .setDescription(`Scarica questo file ed aprilo con il tuo browser per visualizzare il tuo ticket.`)
+    .setColor('#2ecc71')
+    .addFields(
+      { name: 'Trascrizione del ticket', value: channel.name, inline: false },
+      { name: 'Chiuso da', value: closedBy, inline: true },
+      { name: 'Motivazione Chiusura', value: reason, inline: true },
+      { name: 'Categoria ticket', value: ticketType || 'TICKET GENERALE', inline: true },
+      { name: 'Aperto da', value: openedBy, inline: true },
+      { name: 'ID Utente', value: openedById, inline: true }
+    )
+    .setFooter({ text: 'Staff EMS' })
+    .setTimestamp();
+
+  const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID);
   if (logChannel && logChannel.isTextBased()) {
-    await logChannel.send({
-      content: `📄 Transcript ticket chiuso: ${channel.name}`,
-      files: [{ attachment: Buffer.from(transcript, 'utf-8'), name: `${channel.name}-transcript.txt` }],
-    });
+    await logChannel.send({ embeds: [embed], files: [transcriptFile] });
   }
 
-  await interaction.reply({ content: `Ticket chiuso da ${interaction.user}. Sto eliminando il canale.`, ephemeral: true });
+  if (ticketAuthorId) {
+    try {
+      const member = await interaction.guild.members.fetch(ticketAuthorId);
+      if (member) {
+        await member.send({ embeds: [embed], files: [transcriptFile] });
+      }
+    } catch (err) {
+      console.warn('Impossibile inviare DM al cliente:', err);
+    }
+  }
+
+  await interaction.reply({ content: `✅ Ticket chiuso da ${interaction.user.tag}. Transcript inviato e canale eliminato.`, ephemeral: true });
   setTimeout(() => channel.delete().catch(() => {}), 3000);
 }
 
