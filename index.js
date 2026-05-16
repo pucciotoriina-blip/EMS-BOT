@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, EmbedBuilder, Events, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, EmbedBuilder, Events, REST, Routes, ApplicationCommandOptionType } from 'discord.js';
 
 dotenv.config();
 
@@ -98,6 +98,45 @@ async function createTicketPanel(interaction) {
   }
 
   await channel.send({ embeds: [embed], components: rows });
+}
+
+function isTicketChannel(channel) {
+  return channel && channel.type === ChannelType.GuildText && (channel.topic?.startsWith('ticket:') || channel.name.startsWith('ticket-'));
+}
+
+async function addUserToTicketChannel(interaction) {
+  if (!interaction.guild || !interaction.channel || !interaction.isChatInputCommand()) return;
+  if (!isTicketChannel(interaction.channel)) {
+    await interaction.reply({ content: 'Questo comando deve essere usato all’interno di un canale ticket.', ephemeral: true });
+    return;
+  }
+
+  if (!userCanManage(interaction)) {
+    await interaction.reply({ content: 'Solo il ruolo ticket o admin può aggiungere persone al ticket.', ephemeral: true });
+    return;
+  }
+
+  const targetUser = interaction.options.getUser('utente', true);
+  const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+  if (!targetMember) {
+    await interaction.reply({ content: 'Utente non trovato nel server.', ephemeral: true });
+    return;
+  }
+
+  const alreadyHasAccess = interaction.channel.permissionsFor(targetMember)?.has(PermissionFlagsBits.ViewChannel);
+  if (alreadyHasAccess) {
+    await interaction.reply({ content: `${targetUser} ha già accesso a questo ticket.`, ephemeral: true });
+    return;
+  }
+
+  await interaction.channel.permissionOverwrites.create(targetMember, {
+    ViewChannel: true,
+    SendMessages: true,
+    ReadMessageHistory: true,
+  });
+
+  await interaction.reply({ content: `✅ ${targetUser} è stato aggiunto al ticket.`, ephemeral: true });
+  await interaction.channel.send({ content: `🔒 ${targetUser} è stato aggiunto al ticket da ${interaction.user}.` });
 }
 
 async function getExistingTicketChannel(guild, userId) {
@@ -294,6 +333,18 @@ client.once(Events.ClientReady, async () => {
       name: 'ticket-panel',
       description: 'Crea il pannello dei ticket nel canale panel configurato',
     },
+    {
+      name: 'aggiungi',
+      description: 'Aggiunge un membro al ticket corrente',
+      options: [
+        {
+          name: 'utente',
+          description: 'Utente da aggiungere al ticket',
+          type: ApplicationCommandOptionType.User,
+          required: true,
+        },
+      ],
+    },
   ];
 
   try {
@@ -308,6 +359,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'ticket-panel') {
       await createTicketPanel(interaction);
+    } else if (interaction.commandName === 'aggiungi') {
+      await addUserToTicketChannel(interaction);
     }
     return;
   }
