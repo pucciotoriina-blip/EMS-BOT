@@ -10,6 +10,7 @@ const {
   TICKET_ROLE_ID,
   LOG_CHANNEL_ID,
   ADMIN_ROLE_ID,
+  BANNER_URL,
 } = process.env;
 
 if (!BOT_TOKEN || !GUILD_ID || !PANEL_CHANNEL_ID || !TICKET_ROLE_ID || !LOG_CHANNEL_ID || !ADMIN_ROLE_ID) {
@@ -38,11 +39,23 @@ function sanitizeChannelName(text) {
 }
 
 function buildPanelEmbed() {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle('🎫 TICKET EMS')
-    .setDescription('Scegli il tipo di ticket che vuoi aprire. Un solo ticket aperto per utente alla volta.')
+    .setDescription('Supporto 24/7 • Apri il ticket giusto per la tua richiesta.\nPremi un pulsante per aprire un solo ticket alla volta.')
+    .addFields(
+      { name: 'ALTO COMANDO', value: 'Richiedi supporto ufficiale o decisioni di alto comando.', inline: false },
+      { name: 'SEGNALAZIONI', value: 'Apri un ticket per una segnalazione o un abuso.', inline: false },
+      { name: 'INFO', value: 'Chiedi informazioni generali sul server o procedure.', inline: false },
+      { name: 'PROMOZIONE', value: 'Richiedi informazioni su promo, eventi e vantaggi.', inline: false }
+    )
     .setColor('#0d6efd')
-    .setFooter({ text: 'Server EMS GTA RP' });
+    .setFooter({ text: 'Server EMS GTA RP • onyx.xyz' });
+
+  if (BANNER_URL) {
+    embed.setImage(BANNER_URL);
+  }
+
+  return embed;
 }
 
 function buildTicketButtons() {
@@ -150,14 +163,15 @@ async function createTicketChannel(interaction, ticketType) {
 function buildTicketEmbed(user, ticketType) {
   return new EmbedBuilder()
     .setTitle(`Ticket aperto: ${ticketType}`)
-    .setDescription(`Ciao ${user}, ti assisteremo a breve.
+    .setDescription(`Ciao ${user}!
+TI ASSISTEREMO A BREVE.
 Descrivi bene il tuo problema o la tua richiesta.`)
     .addFields(
       { name: 'Categoria', value: ticketType, inline: true },
-      { name: 'Regole', value: 'Usa questo canale solo per il ticket. Il ruolo ticket risponderà qui.', inline: true }
+      { name: 'Indicazioni', value: 'Fornisci informazioni chiare e dettagliate. Il team ticket ti risponderà qui.', inline: true }
     )
     .setColor('#1abc9c')
-    .setFooter({ text: 'Premi CHIUDI quando il ticket è risolto oppure RECLAMA per sollevare il caso.' });
+    .setFooter({ text: 'Premi CHIUDI quando il ticket è risolto oppure RECLAMA se serve escalation.' });
 }
 
 function userCanManage(interaction) {
@@ -261,7 +275,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const ticketRole = await interaction.guild.roles.fetch(TICKET_ROLE_ID);
 
     await interaction.reply({ content: `${ticketRole ? `<@&${ticketRole.id}>` : '@ticket'}
-Ho creato il tuo ticket in ${channel}`, ephemeral: true });
+✅ Ticket creato: ${channel}
+Ti assisteremo a breve.`, ephemeral: true });
     await channel.send({ embeds: [ticketEmbed], components: actionRow });
     return;
   }
