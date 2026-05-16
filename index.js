@@ -42,7 +42,7 @@ function sanitizeChannelName(text) {
 function buildPanelEmbed() {
   const embed = new EmbedBuilder()
     .setTitle('🎫 TICKET CREATE')
-    .setDescription('**SUPPORT 24/7** • www.onyx.xyz\n\n**Hai una domanda sui prodotti?**\n↳ Premi ALTO COMANDO per ottenere supporto rapido.\n\n**Hai bisogno di aiuto generale?**\n↳ Premi SEGNALAZIONI per aprire un ticket adatto.\n\n**Non hai ricevuto il prodotto?**\n↳ Premi INFO o PROMOZIONE per assistenza dedicata.')
+    .setDescription('Supporto 24/7 • www.onyx.xyz')
     .setColor('#0d6efd')
     .setAuthor({ name: 'Developed by lupomannaro', iconURL: DISCORD_ICON_URL || undefined })
     .setFooter({ text: 'Developed by lupomannaro • onyx.xyz', iconURL: DISCORD_ICON_URL || undefined });
@@ -56,6 +56,18 @@ function buildPanelEmbed() {
   }
 
   return embed;
+}
+
+function buildPanelContent() {
+  return [
+    '**Scegli il tipo di ticket:**',
+    '🛡️ **ALTO COMANDO** — Supporto ufficiale e decisioni di alto comando.',
+    '⚠️ **SEGNALAZIONI** — Apri un ticket per una segnalazione o un abuso.',
+    'ℹ️ **INFO** — Chiedi informazioni generali sul server o procedure.',
+    '🎉 **PROMOZIONE** — Richiedi informazioni su promo, eventi e vantaggi.',
+    '',
+    '🔽 Premi uno dei pulsanti qui sotto per aprire il ticket.'
+  ].join('\n');
 }
 
 function buildTicketButtons() {
@@ -82,6 +94,7 @@ async function createTicketPanel(interaction) {
 
   const embed = buildPanelEmbed();
   const rows = buildTicketButtons();
+  const content = buildPanelContent();
 
   await interaction.reply({ content: 'Pannello ticket creato.', ephemeral: true });
   const channel = await interaction.guild.channels.fetch(PANEL_CHANNEL_ID);
@@ -90,7 +103,7 @@ async function createTicketPanel(interaction) {
     return;
   }
 
-  await channel.send({ embeds: [embed], components: rows });
+  await channel.send({ content, embeds: [embed], components: rows });
 }
 
 async function getExistingTicketChannel(guild, userId) {
